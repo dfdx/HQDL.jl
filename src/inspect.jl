@@ -107,7 +107,7 @@ reset!() = empty!(REPORTS)
 
 
 function find_row(g::SubDataFrame, arrtyp, eltyp)
-    rows = filter(row -> row.arrtyp == Array && row.eltyp == Float32, g)
+    rows = filter(row -> row.arrtyp == arrtyp && row.eltyp == eltyp, g)
     return first(rows)
 end
 
@@ -163,6 +163,7 @@ end
 
 
 function run_report()
+    reset!()
     @analyze *(rand(128, 512), rand(512, 64))
     @analyze batched_mul(rand(128, 512, 64), rand(512, 128))
     @analyze softmax(rand(512, 64))
