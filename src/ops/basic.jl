@@ -1,3 +1,30 @@
-@analyze *(r(3, 4), r(4, 3))
-@analyze batched_mul(rand(3, 4, 5), rand(4, 3))
+@analyze r(3, 4) + r(3, 4)
+@analyze r(3, 4) - r(3, 4)
+@analyze r(3, 4) * r(4, 3)
+@analyze r(3, 4) / r(3, 4)
+
+@analyze abs.(X)
+@analyze acos.(X)
+@analyze asin.(X)
+@analyze atan.(X)
+@analyze batched_mul(r(3, 4, 5), r(4, 3))
+@analyze cbrt.(X)
+@analyze clamp.(X, 0.2, 0.4)
+@analyze NNlib.conv(r(10, 10, 3, 1), r(3, 3, 3, 6))
+# @analyze cumsum(X; dims=1)  -- need keyword support
+@analyze exp.(X)
+# gather - figure out example
+@analyze log.(X)
+@analyze maximum(X)
+@analyze minimum(X)
+@analyze reduce(+, X)
+@analyze reshape(X, 4, 3)
+@analyze reverse(r(5))
+# scatter - figure out exampl
+@analyze sin.(X)
+@analyze sqrt(r(3, 3))
+@analyze sqrt.(r(3, 4))
+@analyze tan.(X)
+@analyze transpose(X)
+
 @analyze softmax(rand(3, 4))

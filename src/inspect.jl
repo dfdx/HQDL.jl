@@ -11,19 +11,11 @@ using MDTable
 using Printf
 
 
+include("format.jl")
+
+
 const REPORTS = Dict{Symbol, Any}[]
-
-# const UNKNOWN = ":grey_question:"
-# const OK =
-# const NOT_OK = ":x:"
-
-const STATUS_TO_MESSAGE = Dict(
-    :OK => ":heavy_check_mark:",
-    true => ":heavy_check_mark:",
-    :NOT_OK => ":x:",
-    :NO_RRULE => ":grey_question:",
-    :NO_CUDA => "NO CUDA"
-)
+const FLOAT_TYPES = [Float64, Float32, Float16]
 
 
 ###############################################################################
@@ -48,8 +40,17 @@ function resolve_name(m::Module, name::Expr)
 end
 
 
+const SPECIAL_NAMES = Dict(
+    :X => Shape((3, 4)),
+    :Y => Shape((4, 3)),
+)
+
+
 function argument_spec(arg_ex)
-    if Meta.isexpr(arg_ex, :call) && arg_ex.args[1] in (:r, :rand)
+    if arg_ex in (:X, :Y)
+        # special value - replace with shape of a fixed size
+        return SPECIAL_NAMES[arg_ex]
+    elseif Meta.isexpr(arg_ex, :call) && arg_ex.args[1] in (:r, :rand)
         # e.g. r(5, 10)
         value = arg_ex.args[2:end]
         @assert all(n -> n isa Number, value)
@@ -193,7 +194,7 @@ end
 
 function check_rrule_precision(call::CallSpec, AT::Type; atol=1e-3, rtol=1e-3)
     status = Dict{Type, Symbol}()
-    for ET in (Float16, Float32, Float64)
+    for ET in FLOAT_TYPES
         fn, args = make_fn_args(call, AT{ET})
         if rrule(fn, args...) === nothing
             status[ET] = :NO_RRULE
@@ -210,28 +211,43 @@ function check_rrule_precision(call::CallSpec, AT::Type; atol=1e-3, rtol=1e-3)
 end
 
 
+macro try_or(ex, val)
+    quote
+        try
+            $(esc(ex))
+        catch
+            $(esc(val))
+        end
+    end
+end
+
+
 function _inspect(m::Module, ex::Expr; atol=1e-3, rtol=1e-3)
     @info "Inspecting $ex"
     call = CallSpec(m, ex)
+    # check invocation
+    fn, args = make_fn_args(call, Array{Float32})
+    invoke_ok = @try_or (fn(args...); :OK) :NOT_OK
     # check type coverage
     @debug "  checking on CPU"
     cpu_status = check_rrule_precision(call, Array; atol=atol, rtol=rtol)
     @debug "  checking on GPU"
     gpu_status = (CUDA.functional() ?
         check_rrule_precision(call, Array; atol=atol, rtol=rtol) :
-        Dict(ET => :NO_CUDA for ET in (Float16, Float32, Float64))
+        Dict(ET => :NO_CUDA for ET in FLOAT_TYPES)
     )
     # check docs
     docs_ok = has_docstring(
         call.fn == Broadcast.broadcasted ? call.args[1] : call.fn
-    )
+    ) ? :OK : :NOT_OK
     return merge(
         Dict(
             :call => call,
-            :docs_ok => docs_ok
+            :invoke_ok => invoke_ok,
+            :docs_ok => docs_ok,
         ),
-        Dict(Symbol(lowercase("cpu_$(k)_ok")) => v for (k, v) in cpu_status),
-        Dict(Symbol(lowercase("gpu_$(k)_ok")) => v for (k, v) in gpu_status),
+        Dict(Symbol("cpu_" * format_eltype(k)) => v for (k, v) in cpu_status),
+        Dict(Symbol("gpu_" * format_eltype(k)) => v for (k, v) in gpu_status),
     )
 end
 
@@ -258,39 +274,19 @@ reset!() = empty!(REPORTS)
 # end
 
 
-function format_time(t::Real)
-    if t >= 1
-        return @sprintf "%.1f s" t
-    elseif t >= 1e-3
-        return @sprintf "%.1f ms" (t * 1e3)
-    elseif t >= 1e-6
-        return @sprintf "%.1f μs" (t * 1e6)
-    elseif t >= 1e-9
-        return @sprintf "%.1f ns" (t * 1e9)
-    else
-        return @sprintf "%.1e" t
-    end
-end
-format_time(t) = t
-
-
-function format_status(status::Symbol)
-    return get(STATUS_TO_MESSAGE, status, status)
-end
-
-
 function report(path="src/ops/basic.jl", outpath="basic_output.md")
     reset!()
     include(path)
     df = DataFrame(REPORTS)
     out = DataFrame(
         :call => df.call,
-        :cpu_f64 => map(format_status, df.cpu_float64_ok),
-        :cpu_f32 => map(format_status, df.cpu_float32_ok),
-        :cpu_f16 => map(format_status, df.cpu_float16_ok),
-        :gpu_f64 => map(format_status, df.gpu_float64_ok),
-        :gpu_f32 => map(format_status, df.gpu_float32_ok),
-        :gpu_f16 => map(format_status, df.gpu_float16_ok),
+        :invoke_ok => df.invoke_ok,
+        :cpu_f64 => map(format_status, df.cpu_f64),
+        :cpu_f32 => map(format_status, df.cpu_f32),
+        :cpu_f16 => map(format_status, df.cpu_f16),
+        :gpu_f64 => map(format_status, df.gpu_f64),
+        :gpu_f32 => map(format_status, df.gpu_f32),
+        :gpu_f16 => map(format_status, df.gpu_f16),
         :docs_ok => map(format_status, df.docs_ok)
     )
     if outpath !== nothing
