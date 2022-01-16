@@ -1,19 +1,3 @@
-using Random
-using Logging
-using DataFrames
-using ChainRules: rrule, unthunk
-using ChainRulesTestUtils
-using NNlib
-using CUDA
-using NNlibCUDA
-using BenchmarkTools
-using MDTable
-using Printf
-
-
-include("format.jl")
-
-
 const REPORTS = Dict{Symbol, Any}[]
 const FLOAT_TYPES = [Float64, Float32, Float16]
 
@@ -265,16 +249,25 @@ macro analyze(ex)
     end
 end
 
+
+###############################################################################
+#                                   Report                                    #
+###############################################################################
+
+
 reset!() = empty!(REPORTS)
 
 
-# function find_row(g::SubDataFrame, arrtyp, eltyp)
-#     rows = filter(row -> row.arrtyp == arrtyp && row.eltyp == eltyp, g)
-#     return first(rows)
-# end
+const REPORT_HEADER = """
+:heavy_check_mark: - check passed
+:x: - there was an error during the check
+:grey_question: - status is unclear (e.g. there's no rrule for the op, but an AD system may still be able to handle it)
 
 
-function report(path="src/ops/basic.jl", outpath="basic_output.md")
+"""
+
+
+function report(path="src/ops/basic.jl", outpath="REPORT.md")
     reset!()
     include(path)
     df = DataFrame(REPORTS)
@@ -290,21 +283,10 @@ function report(path="src/ops/basic.jl", outpath="basic_output.md")
         :docs_ok => map(format_status, df.docs_ok)
     )
     if outpath !== nothing
-        MDTable.writeMDTable(outpath, out)
+        open(outpath, "w") do io
+            write(io, REPORT_HEADER)
+            write_mdtable(io, out)
+        end
     end
     return out
-end
-
-
-function main()
-    ENV["JULIA_DEBUG"] = Main
-
-    fn = batched_mul
-    default_args = (rand(3, 4, 10), rand(4, 3))
-    @analyze batched_mul(rand(3, 4, 10), rand(4, 3))
-
-    fn = (*)
-    default_args = (rand(3, 4), rand(4, 3))
-    @inspect *(rand(3, 4), rand(4, 3))
-    @analyze *(rand(3, 4), rand(4, 3))
 end

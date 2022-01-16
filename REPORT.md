@@ -1,3 +1,6 @@
+:heavy_check_mark: - check passed
+:x: - there was an error during the check
+:grey_question: - status is unclear (e.g. there's no rrule for the op, but an AD system may still be able to handle it)
 | call | invoke_ok | cpu_f64 | cpu_f32 | cpu_f16 | gpu_f64 | gpu_f32 | gpu_f16 | docs_ok |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | +(r(3, 4), r(3, 4)) | OK | :heavy_check_mark: | :heavy_check_mark: | :x: | :heavy_check_mark: | :heavy_check_mark: | :x: | :heavy_check_mark: |

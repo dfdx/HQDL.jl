@@ -2,6 +2,6 @@ module HQDL
 
 export @inspect, @analyze, @measure
 
-include("inspect.jl")
+include("core.jl")
 
 end # module
