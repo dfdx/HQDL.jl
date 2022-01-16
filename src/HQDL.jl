@@ -1,5 +1,7 @@
 module HQDL
 
-greet() = print("Hello World!")
+export @inspect, @analyze, @measure
+
+include("inspect.jl")
 
 end # module
