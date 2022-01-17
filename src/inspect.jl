@@ -271,8 +271,8 @@ Same as `@inspect`, but also saves the result to the global table
 that `report()` then uses for report generation.
 """
 macro analyze(ex, kwargs...)
+    kw = [esc(a) for a in kwargs]
     quote
-        kw = [esc(a) for a in kwargs]
         df = _inspect(@__MODULE__, $(QuoteNode(ex)); $(kw...))
         push!(REPORTS, df)
         df
