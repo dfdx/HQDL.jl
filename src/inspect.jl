@@ -1,5 +1,5 @@
 const REPORTS = Dict{Symbol, Any}[]
-const FLOAT_TYPES = [Float64, Float32, Float16]
+const FLOAT_TYPES = [Float64, Float32]
 
 
 ###############################################################################
@@ -236,16 +236,46 @@ function _inspect(m::Module, ex::Expr; atol=1e-3, rtol=1e-3)
 end
 
 
+"""
+    @inspect(ex, kwargs...)
+
+Inspect a call or broadcasting expression, check forward and backward passes
+on several precisions, docs, etc.
+
+Expressions may include literal values (e.g. `1`), calls to `rand(...)`
+(also aliased as `r(...)`) or one of the special short names:
+
+* `X` - same as `r(3, 4)`
+* `Y` - same as `r(4, 3)`
+
+Macro kwargs are passed to appropriate steps, e.g. `atol` and `rtol` are
+used in `test_rrule()`.
+
+Examples:
+=========
+
+    @inspect softmax(r(5, 10))
+    @inspect relu.(X)    # same as @inspect relu.(r(3, 4))
+    @inspect X * Y
+"""
 macro inspect(ex, kwargs...)
     kw = [esc(a) for a in kwargs]
     :(_inspect(@__MODULE__, $(QuoteNode(ex)); $(kw...)))
 end
 
 
-macro analyze(ex)
+"""
+    @analyze(ex, kwargs...)
+
+Same as `@inspect`, but also saves the result to the global table
+that `report()` then uses for report generation.
+"""
+macro analyze(ex, kwargs...)
     quote
-        df = _inspect(@__MODULE__, $(QuoteNode(ex)))
+        kw = [esc(a) for a in kwargs]
+        df = _inspect(@__MODULE__, $(QuoteNode(ex)); $(kw...))
         push!(REPORTS, df)
+        df
     end
 end
 
@@ -259,9 +289,9 @@ reset!() = empty!(REPORTS)
 
 
 const REPORT_HEADER = """
-:heavy_check_mark: - check passed
-:x: - there was an error during the check
-:grey_question: - status is unclear (e.g. there's no rrule for the op, but an AD system may still be able to handle it)
+* :heavy_check_mark: - check passed
+* :x: - there was an error during the check
+* :grey_question: - status is unclear (e.g. there's no rrule for the op, but an AD system may still be able to handle it)
 
 
 """
@@ -271,16 +301,11 @@ function report(path="src/ops/basic.jl", outpath="REPORT.md")
     reset!()
     include(path)
     df = DataFrame(REPORTS)
-    out = DataFrame(
-        :call => df.call,
-        :invoke_ok => df.invoke_ok,
-        :cpu_f64 => map(format_status, df.cpu_f64),
-        :cpu_f32 => map(format_status, df.cpu_f32),
-        :cpu_f16 => map(format_status, df.cpu_f16),
-        :gpu_f64 => map(format_status, df.gpu_f64),
-        :gpu_f32 => map(format_status, df.gpu_f32),
-        :gpu_f16 => map(format_status, df.gpu_f16),
-        :docs_ok => map(format_status, df.docs_ok)
+    columns = [:invoke_ok, :cpu_f64, :cpu_f32, :gpu_f64, :gpu_f32, :docs_ok]
+    statuses = combine(df, columns .=> ByRow(format_status) .=> columns)
+    out = hcat(
+        DataFrame(:call => df.call),
+        statuses
     )
     if outpath !== nothing
         open(outpath, "w") do io
