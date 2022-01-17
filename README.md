@@ -1,4 +1,4 @@
-High-Quality Deep Learning
+# High-Quality Deep Learning
 
 Curated list of high-quality operators for machine learning. See [REPORT.md](REPORT.md) for the current state of the ecosystem.
 
