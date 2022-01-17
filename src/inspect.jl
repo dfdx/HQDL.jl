@@ -289,6 +289,13 @@ reset!() = empty!(REPORTS)
 
 
 const REPORT_HEADER = """
+Call specification:
+
+* `r(...)` or `rand(...)` - random array of the specified size and tested precision
+* `X`, `Y` - aliases to `r(3, 4)` and `r(4, 3)` respectively
+
+Status meaning:
+
 * :heavy_check_mark: - check passed
 * :x: - there was an error during the check
 * :grey_question: - status is unclear (e.g. there's no rrule for the op, but an AD system may still be able to handle it)
@@ -296,8 +303,7 @@ const REPORT_HEADER = """
 
 """
 
-
-function report(path="src/ops/basic.jl", outpath="REPORT.md")
+function collect_report(path)
     reset!()
     include(path)
     df = DataFrame(REPORTS)
@@ -307,11 +313,18 @@ function report(path="src/ops/basic.jl", outpath="REPORT.md")
         DataFrame(:call => df.call),
         statuses
     )
-    if outpath !== nothing
-        open(outpath, "w") do io
-            write(io, REPORT_HEADER)
-            write_mdtable(io, out)
-        end
-    end
     return out
+end
+
+
+function report(outpath="REPORT.md")
+    basic = collect_report("src/ops/basic.jl")
+    activations = collect_report("src/ops/activations.jl")
+    open(outpath, "w") do io
+        write(io, REPORT_HEADER)
+        write(io, "\n\n## Basic\n\n")
+        write_mdtable(io, basic)
+        write(io, "\n\n## Activations\n\n")
+        write_mdtable(io, activations)
+    end
 end
