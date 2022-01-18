@@ -7,7 +7,6 @@ using NNlib
 using CUDA
 using NNlibCUDA
 using BenchmarkTools
-using MDTable
 using Printf
 
 
