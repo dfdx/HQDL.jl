@@ -234,6 +234,7 @@ function _inspect(m::Module, ex::Expr; atol=1e-3, rtol=1e-3)
     )
     # check type stability
     jet = @no_exception JET.@test_opt fn(args...)
+    jet_rrule = @no_exception JET.@test_opt rrule(fn, args...)
     # check docs
     docs_ok = has_docstring(
         call.fn == Broadcast.broadcasted ? call.args[1] : call.fn
@@ -243,6 +244,7 @@ function _inspect(m::Module, ex::Expr; atol=1e-3, rtol=1e-3)
             :call => call,
             :invoke_ok => invoke_ok,
             :jet => jet,
+            :jet_rrule => jet_rrule,
             :docs_ok => docs_ok,
         ),
         Dict(Symbol("cpu_" * format_eltype(k)) => v for (k, v) in cpu_status),
@@ -322,7 +324,7 @@ function collect_report(path)
     reset!()
     include(path)
     df = DataFrame(REPORTS)
-    columns = [:invoke_ok, :cpu_f64, :cpu_f32, :gpu_f64, :gpu_f32, :jet, :docs_ok]
+    columns = [:invoke_ok, :cpu_f64, :cpu_f32, :gpu_f64, :gpu_f32, :jet, :jet_rrule, :docs_ok]
     statuses = combine(df, columns .=> ByRow(format_status) .=> columns)
     out = hcat(
         DataFrame(:call => df.call),
