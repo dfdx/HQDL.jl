@@ -1,3 +1,6 @@
+# currently failing due to:
+# https://github.com/JuliaDiff/ChainRulesTestUtils.jl/pull/230
+# https://github.com/JuliaDiff/ChainRulesTestUtils.jl/issues/234
 @analyze NNlib.σ.(X)
 @analyze NNlib.hardσ.(X)
 @analyze NNlib.hardtanh.(X)

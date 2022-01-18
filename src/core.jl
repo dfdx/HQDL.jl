@@ -7,6 +7,7 @@ using NNlib
 using CUDA
 using NNlibCUDA
 using BenchmarkTools
+using JET
 using Printf
 
 

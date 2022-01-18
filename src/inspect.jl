@@ -206,13 +206,25 @@ macro try_or(ex, val)
 end
 
 
+macro no_exception(ex)
+    quote
+        try
+            $(esc(ex))
+            :OK
+        catch
+            :NOT_OK
+        end
+    end
+end
+
+
 function _inspect(m::Module, ex::Expr; atol=1e-3, rtol=1e-3)
     @info "Inspecting $ex"
     call = CallSpec(m, ex)
     # check invocation
     fn, args = make_fn_args(call, Array{Float32})
     invoke_ok = @try_or (fn(args...); :OK) :NOT_OK
-    # check type coverage
+    # check rrules for multiple arg types
     @debug "  checking on CPU"
     cpu_status = check_rrule_precision(call, Array; atol=atol, rtol=rtol)
     @debug "  checking on GPU"
@@ -220,6 +232,8 @@ function _inspect(m::Module, ex::Expr; atol=1e-3, rtol=1e-3)
         check_rrule_precision(call, Array; atol=atol, rtol=rtol) :
         Dict(ET => :NO_CUDA for ET in FLOAT_TYPES)
     )
+    # check type stability
+    jet = @no_exception JET.@test_opt fn(args...)
     # check docs
     docs_ok = has_docstring(
         call.fn == Broadcast.broadcasted ? call.args[1] : call.fn
@@ -228,6 +242,7 @@ function _inspect(m::Module, ex::Expr; atol=1e-3, rtol=1e-3)
         Dict(
             :call => call,
             :invoke_ok => invoke_ok,
+            :jet => jet,
             :docs_ok => docs_ok,
         ),
         Dict(Symbol("cpu_" * format_eltype(k)) => v for (k, v) in cpu_status),
@@ -307,7 +322,7 @@ function collect_report(path)
     reset!()
     include(path)
     df = DataFrame(REPORTS)
-    columns = [:invoke_ok, :cpu_f64, :cpu_f32, :gpu_f64, :gpu_f32, :docs_ok]
+    columns = [:invoke_ok, :cpu_f64, :cpu_f32, :gpu_f64, :gpu_f32, :jet, :docs_ok]
     statuses = combine(df, columns .=> ByRow(format_status) .=> columns)
     out = hcat(
         DataFrame(:call => df.call),
