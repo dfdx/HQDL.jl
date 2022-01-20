@@ -1,6 +1,6 @@
 module HQDL
 
-export @inspect, @analyze, @measure
+export @inspect, @inspect!, @measure
 
 include("core.jl")
 

@@ -63,15 +63,25 @@ function CallSpec(m::Module, ex::Expr)
         # e.g. :(NNlib.relu.(r(5, 10)))
         bcast_fn = resolve_name(m, ex.args[1])
         bcast_args = map(argument_spec, ex.args[2].args)
-        return CallSpec(Broadcast.broadcasted, [bcast_fn, bcast_args...])
+        # return CallSpec(Broadcast.broadcasted, [bcast_fn, bcast_args...])
+        return CallSpec(Broadcast.broadcast, [bcast_fn, bcast_args...])
     else
         error("@inspect expects call or broadcasting expression as " *
                 "an argument, but got $ex")
     end
 end
 
+function CallSpec(ex::Expr)
+    m = @__MODULE__
+    @warn ("Creating CallSpec with module implicitely set to $m. This is error-prone" *
+            "and thus not recommended. Pass module explicitely to avoid this message")
+    return CallSpec(m, ex)
+end
+
+
 function Base.show(io::IO, call::CallSpec)
-    if call.fn == Broadcast.broadcasted
+    # if call.fn == Broadcast.broadcasted
+    if call.fn == Broadcast.broadcast
         arg_str = join([a isa Shape ? "r$(a.value)" : a for a in call.args[2:end]], ", ")
         print(io, "$(call.args[1]).($arg_str)")
     else
@@ -113,13 +123,13 @@ Examples:
 
 
 """
-function benchmark_call(call::CallSpec, T::Type)
+function benchmark_rrule(call::CallSpec, T::Type)
     fn, args = make_fn_args(call, T)
     fwd_time = nothing
     try
         fwd_time = @belapsed $fn($args...) samples=100 seconds=1
     catch
-        fwd_time = :ERROR
+        fwd_time = :NOT_OK
     end
     bwd_time = nothing
     rr = rrule(fn, args...)
@@ -131,10 +141,53 @@ function benchmark_call(call::CallSpec, T::Type)
             dy = y isa AbstractArray ? random_array(T, size(y)) : one(dy)
             bwd_time = @belapsed map($unthunk, $pb($dy)) samples=100 seconds=1
         catch
-            bwd_time = :ERROR
+            bwd_time = :NOT_OK
         end
     end
     return fwd_time, bwd_time
+end
+
+
+function benchmark_ad(call::CallSpec, T::Type)
+    fn, args = make_fn_args(call, T)
+    # sfn = (args...) -> sum(fn(args...))
+    #
+    sumfun(fn, a) = sum(fn(a))
+    sumfun(fn, a, b) = sum(fn(a, b))
+    sumfun(fn, a, b, c) = sum(fn(a, b, c))
+
+    @show Yota.Ghost.trace(sumfun, fn, args...)
+    # Yota
+    yota_correct = :NOT_OK; yota_time = :NOT_OK
+    # try
+        yota_correct = Yota.gradcheck(sumfun, fn, args...) ? :OK : NOT_OK
+        yota_time = @belapsed Yota.grad(sumfun, fn, args...)
+    # catch
+    # end
+    return yota_correct, yota_time
+
+
+
+    # fwd_time = nothing
+    # try
+    #     fwd_time = @belapsed $fn($args...) samples=100 seconds=1
+    # catch
+    #     fwd_time = :NOT_OK
+    # end
+    # bwd_time = nothing
+    # rr = rrule(fn, args...)
+    # if rr === nothing
+    #     bwd_time = :NO_RRULE
+    # else
+    #     try
+    #         y, pb = rr
+    #         dy = y isa AbstractArray ? random_array(T, size(y)) : one(dy)
+    #         bwd_time = @belapsed map($unthunk, $pb($dy)) samples=100 seconds=1
+    #     catch
+    #         bwd_time = :NOT_OK
+    #     end
+    # end
+    # return fwd_time, bwd_time
 end
 
 
@@ -142,9 +195,9 @@ function _measure(m::Module, ex::Expr)
     call = CallSpec(m, ex)
     # benchmark forward and backward passes
     @debug "  benchmarking"
-    fwd_time_cpu, bwd_time_cpu = benchmark_call(call, Array{Float32})
+    fwd_time_cpu, bwd_time_cpu = benchmark_rrule(call, Array{Float32})
     fwd_time_gpu, bwd_time_gpu = (CUDA.functional() ?
-                                    benchmark_call(call, CuArray{Float32}) :
+                                    benchmark_rrule(call, CuArray{Float32}) :
                                     (:NO_CUDA, :NO_CUDA))
     return Dict(
         :call => call,
@@ -174,6 +227,14 @@ end
 ###############################################################################
 #                               Inspect/Analyze                               #
 ###############################################################################
+
+
+function ChainRulesCore.rrule(::typeof(broadcast), f::F, args...) where F
+    rr = rrule(Broadcast.broadcasted, f, args...)
+    rr === nothing && return nothing
+    y, pb = rr
+    collect(Broadcast.instantiate(y)), pb
+end
 
 
 function check_rrule_precision(call::CallSpec, AT::Type; atol=1e-3, rtol=1e-3)
@@ -237,7 +298,8 @@ function _inspect(m::Module, ex::Expr; atol=1e-3, rtol=1e-3)
     jet_rrule = @no_exception JET.@test_opt rrule(fn, args...)
     # check docs
     docs_ok = has_docstring(
-        call.fn == Broadcast.broadcasted ? call.args[1] : call.fn
+        # call.fn == Broadcast.broadcasted ? call.args[1] : call.fn
+        call.fn == Broadcast.broadcast ? call.args[1] : call.fn
     ) ? :OK : :NOT_OK
     return merge(
         Dict(
@@ -282,12 +344,12 @@ end
 
 
 """
-    @analyze(ex, kwargs...)
+    @inspect!(ex, kwargs...)
 
 Same as `@inspect`, but also saves the result to the global table
 that `report()` then uses for report generation.
 """
-macro analyze(ex, kwargs...)
+macro inspect!(ex, kwargs...)
     kw = [esc(a) for a in kwargs]
     quote
         df = _inspect(@__MODULE__, $(QuoteNode(ex)); $(kw...))
@@ -344,4 +406,5 @@ function report(outpath="REPORT.md")
         write(io, "\n\n## Activations\n\n")
         write_mdtable(io, activations)
     end
+    @info "All done! See $outpath for the result"
 end

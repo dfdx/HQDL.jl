@@ -47,19 +47,19 @@ Status meaning:
 
 | call | invoke_ok | cpu_f64 | cpu_f32 | gpu_f64 | gpu_f32 | jet | jet_rrule | docs_ok |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| σ.(r(3, 4)) | :heavy_check_mark: | :x: | :x: | :x: | :x: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+| σ.(r(3, 4)) | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
 | hardσ.(r(3, 4)) | :heavy_check_mark: | :grey_question: | :grey_question: | :grey_question: | :grey_question: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
-| hardtanh.(r(3, 4)) | :heavy_check_mark: | :x: | :x: | :x: | :x: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
-| relu.(r(3, 4)) | :heavy_check_mark: | :x: | :x: | :x: | :x: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+| hardtanh.(r(3, 4)) | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+| relu.(r(3, 4)) | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
 | leakyrelu.(r(3, 4)) | :heavy_check_mark: | :grey_question: | :grey_question: | :grey_question: | :grey_question: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
 | relu6.(r(3, 4)) | :heavy_check_mark: | :grey_question: | :grey_question: | :grey_question: | :grey_question: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
 | rrelu.(r(3, 4)) | :heavy_check_mark: | :grey_question: | :grey_question: | :grey_question: | :grey_question: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
-| elu.(r(3, 4)) | :heavy_check_mark: | :x: | :x: | :x: | :x: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+| elu.(r(3, 4)) | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
 | gelu.(r(3, 4)) | :heavy_check_mark: | :grey_question: | :grey_question: | :grey_question: | :grey_question: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
 | swish.(r(3, 4)) | :heavy_check_mark: | :grey_question: | :grey_question: | :grey_question: | :grey_question: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
-| selu.(r(3, 4)) | :heavy_check_mark: | :x: | :x: | :x: | :x: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+| selu.(r(3, 4)) | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
 | celu.(r(3, 4)) | :heavy_check_mark: | :grey_question: | :grey_question: | :grey_question: | :grey_question: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
-| softplus.(r(3, 4)) | :heavy_check_mark: | :x: | :x: | :x: | :x: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+| softplus.(r(3, 4)) | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
 | softsign.(r(3, 4)) | :heavy_check_mark: | :grey_question: | :grey_question: | :grey_question: | :grey_question: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
 | logσ.(r(3, 4)) | :heavy_check_mark: | :grey_question: | :grey_question: | :grey_question: | :grey_question: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
 | logcosh.(r(3, 4)) | :heavy_check_mark: | :grey_question: | :grey_question: | :grey_question: | :grey_question: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
@@ -68,5 +68,5 @@ Status meaning:
 | softshrink.(r(3, 4)) | :heavy_check_mark: | :grey_question: | :grey_question: | :grey_question: | :grey_question: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
 | trelu.(r(3, 4)) | :heavy_check_mark: | :grey_question: | :grey_question: | :grey_question: | :grey_question: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
 | lisht.(r(3, 4)) | :heavy_check_mark: | :grey_question: | :grey_question: | :grey_question: | :grey_question: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
-| tanh_fast.(r(3, 4)) | :heavy_check_mark: | :x: | :x: | :x: | :x: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
-| sigmoid_fast.(r(3, 4)) | :heavy_check_mark: | :x: | :x: | :x: | :x: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+| tanh_fast.(r(3, 4)) | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+| sigmoid_fast.(r(3, 4)) | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
