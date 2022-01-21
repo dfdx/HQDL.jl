@@ -11,9 +11,11 @@ using CUDA
 using NNlibCUDA
 using BenchmarkTools
 using JET
-using Yota
+import Yota
+import Zygote
 
 
 include("format.jl")
 include("markdown.jl")
+include("gradcheck.jl")
 include("inspect.jl")

@@ -148,47 +148,36 @@ function benchmark_rrule(call::CallSpec, T::Type)
 end
 
 
-function benchmark_ad(call::CallSpec, T::Type)
-    fn, args = make_fn_args(call, T)
-    # sfn = (args...) -> sum(fn(args...))
-    #
-    sumfun(fn, a) = sum(fn(a))
-    sumfun(fn, a, b) = sum(fn(a, b))
-    sumfun(fn, a, b, c) = sum(fn(a, b, c))
-
-    @show Yota.Ghost.trace(sumfun, fn, args...)
-    # Yota
-    yota_correct = :NOT_OK; yota_time = :NOT_OK
-    # try
-        yota_correct = Yota.gradcheck(sumfun, fn, args...) ? :OK : NOT_OK
-        yota_time = @belapsed Yota.grad(sumfun, fn, args...)
-    # catch
-    # end
-    return yota_correct, yota_time
+# workaround for Yota due to https://github.com/dfdx/Ghost.jl/issues/26
+# should be fixed after migration from Ghost to Umlaut
+sumfun(fn, a) = sum(fn(a))
+sumfun(fn, a, b) = sum(fn(a, b))
+sumfun(fn, a, b, c) = sum(fn(a, b, c))
 
 
+# HAS_GPU = CUDA.func()
 
-    # fwd_time = nothing
-    # try
-    #     fwd_time = @belapsed $fn($args...) samples=100 seconds=1
-    # catch
-    #     fwd_time = :NOT_OK
-    # end
-    # bwd_time = nothing
-    # rr = rrule(fn, args...)
-    # if rr === nothing
-    #     bwd_time = :NO_RRULE
-    # else
-    #     try
-    #         y, pb = rr
-    #         dy = y isa AbstractArray ? random_array(T, size(y)) : one(dy)
-    #         bwd_time = @belapsed map($unthunk, $pb($dy)) samples=100 seconds=1
-    #     catch
-    #         bwd_time = :NOT_OK
-    #     end
-    # end
-    # return fwd_time, bwd_time
+
+function benchmark_ad(grad_fn, call::CallSpec)
+    fn, args = make_fn_args(call, Array{Float32})
+    cuargs = map(cu, args)
+    try
+        # using large values for atol & rtol due to instability of numeric gradient
+        # on large values; @inspect also checks AD for correctness on smaller values
+        cpu_ok, gpu_ok = gradcheck_cpu_gpu(grad_fn, sumfun, fn, args...; atol=0.1, rtol=0.1)
+        cpu_time = cpu_ok == :OK ? (@belapsed grad_fn(sumfun, $fn, $args...)) : cpu_ok
+        gpu_time = gpu_ok == :OK  ? (@belapsed grad_fn(sumfun, $fn, $cuargs...)) : gpu_ok
+        return cpu_time, gpu_time
+    catch
+    end
+    return :NOT_OK, :NOT_OK
 end
+
+
+# function benchmark_ad(call::CallSpec, T::Type)
+#     yota_correct, yota_time = benchmark_ad(Yota.grad, call, T)
+
+# end
 
 
 function _measure(m::Module, ex::Expr)
@@ -199,12 +188,18 @@ function _measure(m::Module, ex::Expr)
     fwd_time_gpu, bwd_time_gpu = (CUDA.functional() ?
                                     benchmark_rrule(call, CuArray{Float32}) :
                                     (:NO_CUDA, :NO_CUDA))
+    zygote_cpu, zygote_gpu = benchmark_ad(Zygote.withgradient, call)
+    yota_cpu, yota_gpu = benchmark_ad(Yota.grad, call)
     return Dict(
         :call => call,
         :fwd_time_cpu => fwd_time_cpu,
         :bwd_time_cpu => bwd_time_cpu,
         :fwd_time_gpu => fwd_time_gpu,
-        :bwd_time_gpu => bwd_time_gpu
+        :bwd_time_gpu => bwd_time_gpu,
+        :zygote_cpu => zygote_cpu,
+        :zygote_gpu => zygote_gpu,
+        :yota_cpu => yota_cpu,
+        :yota_gpu => yota_gpu,
     )
 end
 
@@ -286,13 +281,15 @@ function _inspect(m::Module, ex::Expr; atol=1e-3, rtol=1e-3)
     fn, args = make_fn_args(call, Array{Float32})
     invoke_ok = @try_or (fn(args...); :OK) :NOT_OK
     # check rrules for multiple arg types
-    @debug "  checking on CPU"
+    @debug "  checking rrule"
     cpu_status = check_rrule_precision(call, Array; atol=atol, rtol=rtol)
-    @debug "  checking on GPU"
     gpu_status = (CUDA.functional() ?
         check_rrule_precision(call, Array; atol=atol, rtol=rtol) :
         Dict(ET => :NO_CUDA for ET in FLOAT_TYPES)
     )
+    @debug "  checking AD engines"
+    zygote_cpu, zygote_gpu = @try_or(gradcheck_cpu_gpu(Zygote.withgradient, sumfun, fn, args...), (:NOT_OK, :NOT_OK))
+    yota_cpu, yota_gpu = @try_or(gradcheck_cpu_gpu(Yota.grad, sumfun, fn, args...), (:NOT_OK, :NOT_OK))
     # check type stability
     jet = @no_exception JET.@test_opt fn(args...)
     jet_rrule = @no_exception JET.@test_opt rrule(fn, args...)
@@ -305,6 +302,10 @@ function _inspect(m::Module, ex::Expr; atol=1e-3, rtol=1e-3)
         Dict(
             :call => call,
             :invoke_ok => invoke_ok,
+            :zygote_cpu => zygote_cpu,
+            :zygote_gpu => zygote_gpu,
+            :yota_cpu => yota_cpu,
+            :yota_gpu => yota_gpu,
             :jet => jet,
             :jet_rrule => jet_rrule,
             :docs_ok => docs_ok,
@@ -386,7 +387,11 @@ function collect_report(path)
     reset!()
     include(path)
     df = DataFrame(REPORTS)
-    columns = [:invoke_ok, :cpu_f64, :cpu_f32, :gpu_f64, :gpu_f32, :jet, :jet_rrule, :docs_ok]
+    columns = [
+        :invoke_ok, :cpu_f64, :cpu_f32, :gpu_f64, :gpu_f32,
+        :zygote_cpu, :zygote_gpu, :yota_cpu, :yota_gpu,
+        :jet, :jet_rrule, :docs_ok
+    ]
     statuses = combine(df, columns .=> ByRow(format_status) .=> columns)
     out = hcat(
         DataFrame(:call => df.call),
