@@ -224,11 +224,12 @@ end
 ###############################################################################
 
 
+# we need this due to https://github.com/JuliaDiff/ChainRulesTestUtils.jl/issues/234
 function ChainRulesCore.rrule(::typeof(broadcast), f::F, args...) where F
     rr = rrule(Broadcast.broadcasted, f, args...)
     rr === nothing && return nothing
     y, pb = rr
-    collect(Broadcast.instantiate(y)), pb
+    Broadcast.materialize(Broadcast.instantiate(y)), pb
 end
 
 

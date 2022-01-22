@@ -15,6 +15,9 @@ import Yota
 import Zygote
 
 
+CUDA.allowscalar(false)
+
+
 include("format.jl")
 include("markdown.jl")
 include("gradcheck.jl")
