@@ -32,6 +32,6 @@
 @inspect! NNlib.conv(r(10, 10, 3, 1), r(3, 3, 3, 6))
 @inspect! NNlib.depthwiseconv(r(10, 10, 3, 1), r(3, 3, 3, 3))
 
-@inspect! NNlib.maxpool(X)
-@inspect! NNlib.meanpool(X)
+@inspect! NNlib.maxpool(r(8, 8, 3, 1), (2,2))
+@inspect! NNlib.meanpool(r(8, 8, 3, 1), (2,2))
 @inspect! NNlib.softmax(rand(3, 4))

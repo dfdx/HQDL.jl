@@ -39,7 +39,7 @@ function argument_spec(arg_ex)
         value = arg_ex.args[2:end]
         @assert all(n -> n isa Number, value)
         return Shape(Tuple(value))
-    elseif Meta.isexpr(arg_ex, :vect)
+    elseif Meta.isexpr(arg_ex, :vect) || Meta.isexpr(arg_ex, :tuple)
         # e.g. [1, 2, 3]
         return Base.eval(arg_ex)
     elseif arg_ex isa Expr
