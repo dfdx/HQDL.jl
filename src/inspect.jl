@@ -39,10 +39,13 @@ function argument_spec(arg_ex)
         value = arg_ex.args[2:end]
         @assert all(n -> n isa Number, value)
         return Shape(Tuple(value))
+    elseif Meta.isexpr(arg_ex, :vect)
+        # e.g. [1, 2, 3]
+        return Base.eval(arg_ex)
     elseif arg_ex isa Expr
         error("Cannot parse argument expression $arg_ex")
     else
-        return arg_ex
+        return Base.eval(arg_ex)
     end
 end
 
@@ -101,7 +104,17 @@ function random_array(T::Type, sz::Tuple)
 end
 
 function make_fn_args(call::CallSpec, T::Type)
-    args = [a isa Shape ? random_array(T, a.value) : a for a in call.args]
+    args = []
+    for a in call.args
+        if a isa Shape
+            push!(args, random_array(T, a.value))
+        elseif a isa AbstractArray
+            # change device, but not eltype
+            push!(args, T <: CuArray ? cu(a) : a)
+        else
+            push!(args, a)
+        end
+    end
     return call.fn, args
 end
 
@@ -369,20 +382,20 @@ end
 reset!() = empty!(REPORTS)
 
 
-const REPORT_HEADER = """
-Call specification:
+# const REPORT_HEADER = """
+# Call specification:
 
-* `r(...)` or `rand(...)` - random array of the specified size and tested precision
-* `X`, `Y` - aliases to `r(3, 4)` and `r(4, 3)` respectively
+# * `r(...)` or `rand(...)` - random array of the specified size and tested precision
+# * `X`, `Y` - aliases to `r(3, 4)` and `r(4, 3)` respectively
 
-Status meaning:
+# Status meaning:
 
-* :heavy_check_mark: - check passed
-* :x: - there was an error during the check
-* :grey_question: - status is unclear (e.g. there's no rrule for the op, but an AD system may still be able to handle it)
+# * :heavy_check_mark: - check passed
+# * :x: - there was an error during the check
+# * :grey_question: - status is unclear (e.g. there's no rrule for the op, but an AD system may still be able to handle it)
 
 
-"""
+# """
 
 function collect_report(path)
     reset!()
@@ -405,12 +418,14 @@ end
 function report(outpath="REPORT.md")
     basic = collect_report("src/ops/basic.jl")
     activations = collect_report("src/ops/activations.jl")
+    # template engines? not invented here!
+    tmpl = open("templates/REPORT_TEMPLATE.md") do f read(f, String) end
+    tmpl = replace(tmpl,
+        "{{ basic }}" => make_mdtable(basic),
+        "{{ activations }}" => make_mdtable(activations),
+    )
     open(outpath, "w") do io
-        write(io, REPORT_HEADER)
-        write(io, "\n\n## Basic\n\n")
-        write_mdtable(io, basic)
-        write(io, "\n\n## Activations\n\n")
-        write_mdtable(io, activations)
+        write(io, tmpl)
     end
     @info "All done! See $outpath for the result"
 end

@@ -27,3 +27,10 @@ function write_mdtable(io::IO, df)
     end
 
 end
+
+
+function make_mdtable(df)
+    io = IOBuffer()
+    write_mdtable(io, df)
+    return String(take!(io))
+end
